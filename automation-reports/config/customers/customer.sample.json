@@ -1,0 +1,17 @@
+{
+  "customerName": "CustomerA",
+  "thresholds": {
+    "warningFreePercent": 10
+  },
+  "scope": {
+    "includeShared": false,
+    "includeRooms": false
+  },
+  "delivery": {
+    "fromMailbox": "automation-reports@<domain>",
+    "recipients": ["it@customer.com"],
+    "adminRecipients": ["it-ops@<domain>"],
+    "subjectPrefix": "CustomerA",
+    "language": "he"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "items": [
+    { "skuId": "00000000-0000-0000-0000-000000000001", "displayName": "Exchange Online Plan 1" },
+    { "skuId": "00000000-0000-0000-0000-000000000002", "displayName": "Exchange Online Plan 2" },
+    { "skuId": "00000000-0000-0000-0000-000000000003", "displayName": "Microsoft 365 E3" }
+  ]
+}

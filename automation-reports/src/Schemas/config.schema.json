@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["paths", "auth", "mapping"],
+  "properties": {
+    "paths": {
+      "type": "object",
+      "required": ["basePath", "runsRoot"],
+      "properties": {
+        "basePath": { "type": "string" },
+        "runsRoot": { "type": "string" },
+        "archiveRoot": { "type": ["string","null"] }
+      }
+    },
+    "auth": {
+      "type": "object",
+      "required": ["tenantId", "clientId", "certificateThumbprint", "organization"],
+      "properties": {
+        "tenantId": { "type": "string" },
+        "clientId": { "type": "string" },
+        "certificateThumbprint": { "type": "string" },
+        "organization": { "type": "string" }
+      }
+    },
+    "mapping": {
+      "type": "object",
+      "required": ["licenseMapPath", "recommendationsPath"],
+      "properties": {
+        "licenseMapPath": { "type": "string" },
+        "recommendationsPath": { "type": "string" }
+      }
+    }
+  }
+}

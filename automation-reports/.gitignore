@@ -1,0 +1,15 @@
+# Runtime outputs
+runs/
+archive/
+*.log
+*.xlsx
+*.csv
+
+# production configs (leave only samples in repo)
+config/customers/*.json
+config/environments/*.json
+!config/**/**.sample.json
+
+# secrets
+*.pfx
+*.cer

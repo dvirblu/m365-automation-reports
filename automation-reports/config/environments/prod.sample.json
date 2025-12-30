@@ -1,0 +1,17 @@
+{
+  "paths": {
+    "basePath": "D:\\AutomationReports",
+    "runsRoot": "runs",
+    "archiveRoot": "archive"
+  },
+  "auth": {
+    "tenantId": "<TENANT-ID>",
+    "clientId": "<APP-CLIENT-ID>",
+    "certificateThumbprint": "<CERT-THUMBPRINT>",
+    "organization": "<tenant>.onmicrosoft.com"
+  },
+  "mapping": {
+    "licenseMapPath": "D:\\AutomationReports\\config\\mapping\\license-map.json",
+    "recommendationsPath": "D:\\AutomationReports\\config\\mapping\\recommendations.json"
+  }
+}
