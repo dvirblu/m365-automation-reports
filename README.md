@@ -1,245 +1,271 @@
-.
 
 ---
 
-# 🧭 סיכום כולל – מערכת Automation Reports
+# 📘 Automation Reports
 
-## 🎯 מטרת המערכת
+## מסמך טכני – אפיון מערכת, מבנה ואופן פעולה
 
-מערכת אוטומטית אחת שמבצעת **בדיקות ודוחות תקופתיים** (365 ובהמשך נוספים), ומפיקה:
+---
 
-* דוח מלא (כולל תקינים וחריגים)
-* המלצות חכמות רק כשנדרש
-* Audit מלא (לוגים + snapshots)
+## 1. מטרת המערכת (Purpose)
+
+מערכת **Automation Reports** נועדה לספק מנגנון אוטומטי, מאובטח וסטנדרטי להפקה ושליחה של דוחות ובדיקות תקופתיות בסביבת **Microsoft 365**, עם דגש על:
+
+* ניטור ניצול נפח תיבות דואר וארכיון
+* בדיקות רישוי ומדיניות שמירה (Retention)
+* הפקת דוחות Excel אחידים
 * שליחה אוטומטית בדוא״ל
+* Audit מלא לכל ריצה (לוגים + Snapshots)
 * מינימום התערבות ידנית
-* התאמה קלה לסביבות שונות
+* התאמה קלה לסביבות ולקוחות שונים
+
+המערכת בנויה כך שתוכל לשמש גם לדוחות ובדיקות נוספות בעתיד (לא רק 365).
 
 ---
 
-## 📨 תיבת שליחה ייעודית
+## 2. עקרונות תכנון (Design Principles)
 
-**שם:**
+* **Entry Point אחד** – סקריפט ריצה מרכזי
+* **Pipeline קבוע** – שלבים ברורים ומוגדרים
+* **Configuration Driven** – התנהגות המערכת נקבעת ע״י JSON
+* **Separation of Concerns** – קוד ≠ תצורה ≠ תוצרים
+* **Non-Interactive Authentication** – ללא סיסמאות וללא MFA
+* **Auditability מלאה** – כל ריצה ניתנת לשחזור וניתוח
+* **Scheduler Agnostic** – זהה ל-Task Scheduler ול-Rundeck
+
+---
+
+## 3. סקירה ארכיטקטונית כללית
+
+המערכת בנויה כ-**Runner אחד** שמפעיל Pipeline מודולרי, עם חיבור יחיד ל-Microsoft 365 וכתיבת תוצרים ל-Working Directory מקומי.
+
+### רכיבים עיקריים
+
+* Runner (Run.ps1)
+* מודולי לוגיקה (PowerShell Modules)
+* קבצי תצורה (JSON)
+* תיבת דוא״ל ייעודית לשליחה
+* סביבת אחסון תוצרים (Logs / Snapshots / Reports)
+* Git Repository (לקוד בלבד)
+
+---
+
+## 4. תרשים סכמטי – מבנה המערכת
 
 ```
-automation-reports@<domain>
+┌───────────────────────────┐
+│   Scheduler / Trigger     │
+│ (Task Scheduler / Rundeck)│
+└─────────────┬─────────────┘
+              │
+              ▼
+┌───────────────────────────┐
+│        Run.ps1             │
+│   (Entry Point / Runner)   │
+└─────────────┬─────────────┘
+              │
+              ▼
+┌─────────────────────────────────────────┐
+│              Pipeline                    │
+│                                         │
+│  Preflight + Auth                        │
+│  Data Collection                         │
+│  Normalization                           │
+│  Calculations                            │
+│  Recommendation Engine                  │
+│  Report Rendering (XLSX)                │
+│  Email Delivery                          │
+│  Post-Run                               │
+└─────────────┬───────────────────────────┘
+              │
+              ▼
+┌─────────────────────────────────────────┐
+│     Working Directory (Server)           │
+│                                         │
+│  runs/      → logs + snapshots + output │
+│  archive/   → reports only              │
+└─────────────────────────────────────────┘
+              │
+              ▼
+┌───────────────────────────┐
+│ Microsoft 365              │
+│ - Exchange Online          │
+│ - Microsoft Graph          │
+└───────────────────────────┘
 ```
 
-**סוג:**
+---
 
-* Shared Mailbox (תיבה אמיתית ב-Exchange Online)
+## 5. אופן האותנטיקציה (Authentication Model)
 
-**שימוש:**
+### מודל
 
-* שליחת דוחות ובדיקות אוטומטיות מכל הסוגים
-* כל מייל נשמר ב־Sent Items (`saveToSentItems = true`)
-* מאפשר Audit, Troubleshooting ושקיפות
+**Azure App Registration + Certificate Authentication**
 
-❌ אין פיברוק כתובת
-❌ אין SMTP חיצוני
+### עקרונות
+
+* אין שימוש בסיסמאות
+* אין MFA
+* Private Key נשמר רק בשרת הריצה
+* Public Key נשמר ב-App Registration
+
+### שירותים
+
+* Exchange Online (קריאה לנתוני תיבות)
+* Microsoft Graph (רישוי + שליחת מייל)
 
 ---
 
-## 🔐 אותנטיקציה ואבטחה
+## 6. תיבת שליחה ייעודית
 
-### מודל התחברות
+* כתובת:
+  `automation-reports@<domain>`
+* סוג: Shared Mailbox
+* שימוש:
 
-**App Registration + Certificate Authentication**
-
-* **Private Key**
-
-  * נשמר על מחשב/שרת הריצה (Certificate Store / Key Vault)
-* **Public Key**
-
-  * נשמר ב-App Registration ב-Entra ID
-
-📌 אין סיסמאות
-📌 אין MFA
-📌 אין Secrets בקוד או ב-JSON
-
-### הרשאות עיקריות
-
-* Exchange Online – קריאה לנתוני Mailbox / Archive / Retention
-* Microsoft Graph:
-
-  * `Directory.Read.All`
-  * `Mail.Send`
-* Admin Consent חד-פעמי
+  * שליחת דוחות ובדיקות אוטומטיות
+  * שמירת כל הודעה ב-Sent Items
+* שליחה מתבצעת דרך Microsoft Graph (`saveToSentItems = true`)
 
 ---
 
-## 🧠 מבנה ריצה (Run)
+## 7. Pipeline – שלבי הפעולה
 
-**Run = ריצה אחת מבודדת של המערכת**, עם:
+1. **Trigger**
 
-* RunId ייחודי
-* תיקיות עבודה משלה
-* לוג מרכזי אחד
-* Snapshots לכל שלב
-* תוצר סופי אחד (XLSX)
+   * Task Scheduler / Rundeck
+2. **Run Initialization**
 
-אין חפיפה בין ריצות.
+   * יצירת RunId
+   * פתיחת לוג
+   * יצירת תיקיות ריצה
+3. **Preflight + Authentication**
+
+   * טעינת Config
+   * התחברות ל-M365
+4. **Data Collection**
+
+   * Mailbox / Archive
+   * רישוי
+   * Retention
+5. **Normalization**
+
+   * המרות (Bytes → GB)
+   * ניקוי נתונים
+6. **Calculations**
+
+   * חישוב נפח פנוי
+   * חישוב אחוזים
+   * Status (OK / Warning)
+7. **Recommendation Engine**
+
+   * המלצה רק במצב חריגה
+8. **Report Rendering**
+
+   * יצירת XLSX
+   * Sheets + מיון
+9. **Email Delivery**
+
+   * שליחה ללקוח
+10. **Post-Run**
+
+    * סגירה
+    * ארכוב
+    * סטטוס ריצה
 
 ---
 
-## 🔄 Pipeline – שלבי התהליך
-
-1. Trigger / Scheduler
-2. Preflight + Authentication
-3. Data Collection
-4. Normalization
-5. Calculations
-6. Recommendation Engine
-7. Sanity / QA
-8. Report Rendering (XLSX)
-9. Email Delivery
-10. Post-Run & Cleanup
-
-📌 לפני כל מעבר שלב → נכתב Snapshot + Log
-
----
-
-## 🪵 לוגים ו־Snapshots
+## 8. לוגים ו-Snapshots
 
 ### לוג מרכזי
 
-* `process.log`
-* נכתב לאורך כל הריצה
-* כולל:
+* קובץ: `process.log`
+* מכיל:
 
-  * התחלה/סיום שלבים
-  * סטטיסטיקות
-  * שגיאות ואזהרות
-  * משכי זמן
+  * כל שלב
+  * שגיאות
+  * מדדים
+  * זמני ריצה
 
 ### Snapshots
 
-* קובץ נפרד לכל שלב (CSV / JSON)
-* מתעדים “מצב נתונים”
-* מאפשרים Debug / Audit / שחזור
-* לא מכילים Secrets
+* קובץ נפרד לכל שלב
+* CSV / JSON
+* משקף מצב נתונים לפני מעבר שלב
+* מאפשר Debug / Audit / שחזור
 
 ---
 
-## 📄 תפקיד קבצי JSON
+## 9. מבנה Repository (Git)
 
-ה־JSON הוא מה שהופך את הקוד ל־**אוניברסלי**:
+```
+automation-reports/
+├─ README.md
+├─ docs/
+│  └─ automation-reports-technical-design.md
+├─ src/
+│  ├─ Run.ps1
+│  ├─ Modules/
+│  ├─ Templates/
+│  └─ Schemas/
+├─ config/
+│  ├─ environments/*.sample.json
+│  ├─ customers/*.sample.json
+│  └─ mapping/*.sample.json
+├─ tools/
+│  └─ Build-Release.ps1
+└─ .gitignore
+```
 
-* `config.json`
-
-  * מגדיר *איך* המערכת רצה (ספים, נתיבים, נמענים, תיבה שולחת)
-  * שינוי מדיניות ללא שינוי קוד
-
-* Snapshots (`*.json`)
-
-  * תיעוד מצב ביניים
-  * לא מבצעים לוגיקה
-
-📌 קוד = Engine
-📌 JSON = Configuration / State
-
----
-
-## 📦 מבנה קוד (רמה פיזית)
-
-### Entry Point אחד
-
-* `Run.ps1`
-
-### מודולים (כ־10–11 קבצים)
-
-* Config
-* Logging
-* Snapshot
-* Auth
-* DataCollection
-* Normalization
-* Calculation
-* Recommendation
-* Rendering
-* Delivery
-
-📌 מבחוץ: “סקריפט אחד”
-📌 מבפנים: מערכת מודולרית
+**ה-Repo מכיל קוד בלבד – לא תוצרים ולא נתוני אמת.**
 
 ---
 
-## 🗂️ עבודה עם Git – ומה לא נכנס ל-Git
-
-### Git Repository (יחיד)
-
-* קוד
-* תבניות
-* config לדוגמה (`_sample`)
-* סכמות
-* תיעוד
-
-❌ לא כולל:
-
-* דוחות
-* לוגים
-* snapshots
-* config אמיתי
-* נתוני אמת
-* credentials
-
-Git = **Source of Truth לקוד בלבד**
-
----
-
-## 🖥️ Working Directory (לא Git)
-
-על שרת הריצה בלבד:
+## 10. מבנה Working Directory (שרת ריצה)
 
 ```
 D:\AutomationReports\
-├─ app\        (קוד פרוס)
-├─ config\     (קונפיג אמיתי)
-├─ runs\       (תוצרים תפעוליים)
-└─ archive\    (דוחות סופיים)
+├─ app\        ← קוד פרוס (מה-Repo / ZIP)
+├─ config\     ← קונפיג פרודקשן
+├─ runs\       ← תוצרים תפעוליים (logs, snapshots, output)
+└─ archive\    ← דוחות סופיים ללקוח
 ```
 
 ---
 
-## 🔁 עבודה עם Git + בלי Git
+## 11. עבודה עם Git ובלי Git
 
-### מודל עבודה
+* Git משמש לפיתוח, גרסאות ותחזוקה
+* בפרודקשן ניתן לעבוד:
 
-* פיתוח וניהול גרסאות → Git
-* פריסה ליעדים:
-
-  * עם Git → `git pull`
-  * בלי Git → **Release ZIP (אופליין)**
-
-### Release ZIP כולל:
-
-* `Run.ps1`
-* `Modules\`
-* `Templates\`
-* `Schemas\`
-* `VERSION.txt`
-
-❌ לא כולל:
-
-* config אמיתי
-* outputs
-* credentials
+  * עם Git Pull
+  * או עם **Release ZIP** (ללא חיבור ל-Git)
+* הקוד זהה – רק אופן הפריסה משתנה
 
 ---
 
-## 🟢 השורה התחתונה
+## 12. אבטחה ובקרות
 
-בנינו:
+* אין Credentials בקוד או ב-JSON
+* Private Key מוגן ע״י OS
+* Audit כפול:
 
-> **מערכת אוטומציה ארגונית**
-> ולא סקריפט חד-פעמי
+  * לוגים
+  * Sent Items בתיבת הדוחות
+* ניתן להקשיח הרשאות App לפי צורך
 
-עם:
+---
 
-* זהות מאובטחת
-* הפרדת קוד / נתונים / תוצרים
-* תמיכה מלאה ב-Git וגם בפריסה אופליין
-* Audit מלא
-* Scalability לבדיקות עתידיות
+## 13. סיכום
+
+מערכת **Automation Reports** היא מערכת אוטומציה ארגונית מלאה, המספקת:
+
+* סטנדרטיזציה
+* אבטחה
+* שקיפות
+* Scalability
+* שימוש חוזר לבדיקות עתידיות
+
+המערכת תוכננה כך שתתאים הן לארגונים קטנים והן לסביבות Enterprise עם כלי Orchestration מתקדמים.
 
 ---
